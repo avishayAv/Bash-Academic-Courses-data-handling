@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Input : a word
+# Output : number of characters in the word
+function calcNumOfChars	{
+	echo $1 | wc -c
+}
+
+# Input : course ID and student grade for course
+# Output : print course details and student grade
+ function printInfo {
+	# Process : 1. previous courses from each line should be removed.
+	# 2. sort by course ID and print all relevant data.
+	# NOTE : num_of_chars is an indicator for previous courses.
+	while read -a line; do
+		if [[ "$1" == ${line[0]} ]]; then
+			length=${#line[*]}
+			let length--
+			while ((length>=0)); do
+				num_of_chars=`calcNumOfChars ${line[((length))]}`
+				if (( num_of_chars < 7 )); then
+					echo ${line[*]:0:length+1} $2 
+					break;
+				fi
+				let length--
+			done
+		fi
+	done < courses.list
+}
+
+# Input : course ID with junk characters
+# Output : pure course ID
+function cutCourseId {
+	echo $1 | cut -d"." -f1
+}
+
+# Input : List of lines with the relevant ID and semester
+# Output : course ID and student grade for each course/semester
+function countWords	{
+	while read -a line; do
+		length=${#line[*]}
+		course_id=`cutCourseId ${line[0]}`
+		student_grade=${line[((length -1))]}
+		if ((`calcNumOfChars $student_grade` > 4)); then
+			student_grade="-"
+		fi
+		printInfo $course_id $student_grade
+	done
+}
+
+# Process : creating a file with all the lines with the requested student+semester
+grep $1 *.course | grep $2 | countWords

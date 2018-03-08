@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# Input : IDs
+# Output : array of IDs
+function setIdsToArray {
+	student_ids=()
+	length=0
+	while read -a line; do
+		student_ids[((length))]=${line[0]};
+		let length++
+	done
+	echo ${student_ids[*]}
+}
+
+# Input : requested semesters
+# Output : same semester and all following (feature semesters) until 1718A (now!)
+function getFeatureSemesters {
+	# Get requested semester
+	requested=$1
+	currernt_year1=17
+	current_year2=18
+	current_semes=A
+	year1=${requested:0:2}
+	year2=${requested:2:2}
+	semes=${requested:4:1}
+	
+	# compare request semester to current semester and print insert to array all semesters between
+	if [[ $semes != "A" ]]; then
+		if [[ $semes != "B" ]]; then
+			echo $year1$year2$semes
+		else
+			echo $year1$year2$semes
+			echo $year1$year2'C'
+		fi
+	else
+		echo $year1$year2$semes
+		echo $year1$year2'B'
+		echo $year1$year2'C'
+	fi
+	
+	let year1++
+	let year2++
+	semes='A'
+	while (( year1 < currernt_year1 )); do
+		echo $year1$year2'A'
+		echo $year1$year2'B'
+		echo $year1$year2'C'
+		let year1++
+		let year2++
+	done
+	echo $currernt_year1$current_year2'A'
+}
+
+# Input : array of all relevant semesters
+# Output : string of all relevant semesters with '|' between each other (needed for grep features in main)
+function convertToString {
+	# Should identify last number in array to avoid last '|'
+	isLast=${#feature_sem[*]}
+	for i in ${feature_sem[@]}; do
+		if (( isLast == 1 )); then
+			echo -n $i
+		else
+			echo -n $i '|'
+			let isLast--
+		fi
+	done
+}
+
+# Input : a word
+# Output : number of characters in the word
+function calcNumOfChars	{
+	echo $1 | wc -c
+}
+
+# Input : all the grades for a ceratin student in a certain course, sorted (the first row is the most updated grade)
+# Output 1 - pass. 0 - fail.
+function isFail {
+	while read -a line; do
+		len_of_line=${#line[*]}
+		# Case for failure : student have not done the course (empty line from the main prog)
+		if (( $len_of_line == 0 )); then
+			echo 0
+			break
+		else
+			last_word=${line[((len_of_line-1))]}
+			num_of_chars=`calcNumOfChars $last_word`
+			if (( num_of_chars <= 4 )); then
+				# Case for failure : student have fail grade in the most updated test (<55 grade from main prog)
+				if (( last_word < 55 )); then
+					echo 0
+					break
+				# Case for success : student have pass grade in the most updated test (>55 grade from main prog)
+				else
+					echo 1
+					break
+				fi
+			fi
+			# case no grade - move to previous semester
+		fi
+	done
+	
+}
+
+# Input : a certain students acheivements
+# Output : it's name (cut all the rest)
+function getName {
+	read -a line
+	length=${#line[*]}
+	let length--
+	while ((length>=0)); do
+		num_of_chars=`calcNumOfChars ${line[((length))]}`
+		if (( num_of_chars > 4 )); then
+			let length--
+			echo ${line[*]:1:$length}
+			break;
+		fi
+		let length--
+	done
+}
+
+function main {
+	# Students, pre courses, feature semesters
+	student_ids=(`grep $2 $1.course | sort -n | setIdsToArray`)
+	pre_courses=(`./preCourses $1`)
+	feature_sem=(`getFeatureSemesters $2`)
+	sem_str=`convertToString ${feature_sem[*]}`
+	
+	# isSuccess - responsible for failure
+	for stud in ${student_ids[@]}; do
+		isSuccess=1
+		for course in ${pre_courses[@]}; do
+			isSuccess=`grep $stud $course.course | grep -Ev "$sem_str" | sort -br | isFail`
+			if ((isSuccess==0));then
+				break
+			fi
+		done
+		if ((isSuccess==0));then
+				# for each fail student - print ID and name
+				name=(`grep $stud *.course | getName`)
+				echo $stud ${name[*]}
+		fi
+	done
+}
+
+main $1 $2

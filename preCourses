@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Input : a word
+# Output : number of characters in the word
+function calcNumOfChars	{
+	echo $1 | wc -c
+}
+
+# Input : relevant line (the one from courses.list that course_id appears as first word)
+# Output : all the relevant pre-courses (including pre-pre recursively)
+function getPreCourses {
+	read -a line
+	length=${#line[*]}
+	let length--
+	while ((length>=0)); do
+		num_of_chars=`calcNumOfChars ${line[((length))]}`
+		if (( num_of_chars > 5 )); then
+			echo ${line[length]}
+			grep -i ^"[[:blank:]]"*${line[length]} courses.list | getPreCourses
+		else
+			break;
+		fi
+		let length--
+	done
+}
+
+# Input : course id
+# Output : print all previous (and pre-pre) courses sorted and unique
+function relevantLine {
+	arr=(`grep -i ^"[[:blank:]]"*$1 courses.list | getPreCourses`) 
+	if (( ${#arr[*]} != 0 )); then
+		printf '%s\n' "${arr[@]}" | sort -n | uniq
+	fi
+}
+
+relevantLine $1

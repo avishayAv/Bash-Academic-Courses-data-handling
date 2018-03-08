@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Input : IDs
+# Output : array of IDs
+function setCoursesToArray {
+	courses_ids=()
+	length=0
+	while read -a line; do
+		courses_ids[((length))]=${line[0]};
+		let length++
+	done
+	echo ${courses_ids[*]}
+}
+
+# Input : a word
+# Output : number of characters in the word
+function calcNumOfChars	{
+	echo $1 | wc -c
+}
+
+# Input : line of a course
+# Output : print course_id and name
+function printIdAndName {
+	read -a line
+	local length=${#line[*]}
+	let length--
+	while ((length>=0)); do
+		num_of_chars=`calcNumOfChars ${line[((length))]}`
+		if (( num_of_chars < 6 )); then
+			echo ${line[*]:0:$length}
+			break;
+		fi
+		let length--
+	done
+}
+
+# Input : semester
+# Output : the courses with the biggest previous courses issues
+function main {
+	courses_ids=(`grep $1 *.course | cut -d"." -f1 | uniq | setCoursesToArray`)
+	max_failed_students=0
+	failed_courses=()
+	length=0
+	
+	# check number of previous failures for each course
+	for course in ${courses_ids[@]}; do
+		num_of_fails=(`./getStudents $course $1 | wc -l`)
+		if (( num_of_fails == max_failed_students )); then
+			failed_courses[$length]=$course
+			let length++
+		else
+			if (( num_of_fails > max_failed_students )); then
+				max_failed_students=$num_of_fails
+				length=0
+				failed_courses[$length]=$course
+				let length++
+			fi
+		fi
+		
+	done
+	
+	# handle only the courses with the biggest previous issues
+	if (( $max_failed_students!= 0 )); then
+		for (( i=0; i<length; i++ )); do
+			course=${failed_courses[i]}
+			grep -i ^"[[:blank:]]"*$course courses.list | printIdAndName
+		done
+		
+	fi
+
+}
+
+main $1
